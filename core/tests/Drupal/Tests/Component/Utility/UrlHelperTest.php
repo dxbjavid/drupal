@@ -162,6 +162,17 @@ class UrlHelperTest extends TestCase {
   }
 
   /**
+   * Tests that an oversized decompressed parameter is not expanded.
+   */
+  public function testUncompressOversizedParameter(): void {
+    // A short parameter that would otherwise inflate to a very large string is
+    // rejected rather than expanded, and the original value is returned.
+    $bomb = str_replace(['+', '/', '='], ['-', '_', ''], base64_encode(gzcompress(str_repeat('a/b,', 5000000))));
+    $this->assertLessThan(1048576, strlen($bomb));
+    $this->assertSame($bomb, UrlHelper::uncompressQueryParameter($bomb));
+  }
+
+  /**
    * Tests invalid absolute URLs.
    *
    * @param string $url

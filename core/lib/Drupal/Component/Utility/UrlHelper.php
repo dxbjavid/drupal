@@ -17,6 +17,16 @@ class UrlHelper {
   protected static $allowedProtocols = ['http', 'https'];
 
   /**
+   * The maximum size, in bytes, of an uncompressed query parameter.
+   *
+   * ::uncompressQueryParameter() only ever expands short values such as a
+   * comma-separated list of asset library names, so the decompressed result is
+   * capped well above any legitimate payload. The cap stops a small crafted
+   * parameter from inflating into hundreds of megabytes.
+   */
+  protected const MAX_UNCOMPRESSED_SIZE = 1048576;
+
+  /**
    * Parses an array into a valid query string encoded with rawurlencode().
    *
    * Function rawurlencode() is RFC3986 compliant, and as a consequence RFC3987
@@ -102,8 +112,11 @@ class UrlHelper {
    */
   public static function uncompressQueryParameter(string $compressed): string {
     // Because this comes from user data, suppress the PHP warning that
-    // gzcompress() throws if the base64-encoded string is invalid.
-    $return = @gzuncompress(base64_decode(str_replace(['-', '_'], ['+', '/'], $compressed)));
+    // gzcompress() throws if the base64-encoded string is invalid. The output
+    // is capped so a small crafted parameter cannot be inflated into an
+    // oversized string; gzuncompress() returns FALSE when the cap is exceeded,
+    // which is handled below as an invalid parameter.
+    $return = @gzuncompress(base64_decode(str_replace(['-', '_'], ['+', '/'], $compressed)), static::MAX_UNCOMPRESSED_SIZE);
 
     // If we failed to uncompress the query parameter, it may be a stale link
     // from before compression was implemented with the URL parameter
